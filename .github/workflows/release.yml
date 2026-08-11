@@ -1,0 +1,91 @@
+name: Release
+
+# Fires on a version tag, e.g. `git tag v2.1.0 && git push origin v2.1.0`.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write        # required for `gh release create`
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # VERSION in fp_qr_gen.pyw is the single source of truth. Failing here is
+      # much cheaper than shipping an installer whose version disagrees with the
+      # app, which would make the updater re-offer the same release forever.
+      - name: Check tag matches app version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}" -replace '^v', ''
+          $src = Select-String -Path src\fp_qr_gen.pyw -Pattern "^VERSION = '(.+)'"
+          $ver = $src.Matches[0].Groups[1].Value
+          if ($tag -ne $ver) { throw "Tag $tag does not match VERSION $ver in fp_qr_gen.pyw" }
+          "VERSION=$ver" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "Building version $ver"
+
+      - name: Install dependencies
+        run: pip install pyinstaller qrcode pillow
+
+      # Keep the exe's file-properties metadata in step with the tag.
+      - name: Sync version resource
+        shell: pwsh
+        run: |
+          $v = "${{ env.VERSION }}"
+          $q = ($v -split '\.') + @('0','0','0','0')
+          $tuple = "($($q[0]), $($q[1]), $($q[2]), 0)"
+          $c = Get-Content build\version_info.txt -Raw
+          $c = $c -replace 'filevers=\([\d, ]+\)', "filevers=$tuple"
+          $c = $c -replace 'prodvers=\([\d, ]+\)', "prodvers=$tuple"
+          $c = $c -replace "StringStruct\('FileVersion', '[^']*'\)", "StringStruct('FileVersion', '$v.0')"
+          $c = $c -replace "StringStruct\('ProductVersion', '[^']*'\)", "StringStruct('ProductVersion', '$v.0')"
+          Set-Content build\version_info.txt $c
+
+      - name: Build with PyInstaller
+        run: pyinstaller build\fp_qr_gen.spec --noconfirm --clean --workpath dist\work
+
+      # Sign the app exe here, before Inno packages it. See BUILD.md.
+      # - name: Sign application
+      #   run: signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 dist\FPQRGenerator\FPQRGenerator.exe
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        run: |
+          & "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe" /DAppVersion=${{ env.VERSION }} build\installer.iss
+        shell: pwsh
+
+      # - name: Sign installer
+      #   run: signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 dist\installer\FPQRGenerator-${{ env.VERSION }}-setup.exe
+
+      # The base URL must point at THIS tag's assets, so the manifest records a
+      # versioned installer URL that stays valid after later releases.
+      - name: Generate update manifest
+        run: |
+          python build\publish.py `
+            dist\installer\FPQRGenerator-${{ env.VERSION }}-setup.exe `
+            ${{ env.VERSION }} `
+            --base-url https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }} `
+            --notes "See the release notes on GitHub."
+        shell: pwsh
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create ${{ github.ref_name }} `
+            dist\installer\FPQRGenerator-${{ env.VERSION }}-setup.exe `
+            dist\installer\version.json `
+            --title "QR Code Generator ${{ env.VERSION }}" `
+            --generate-notes
+        shell: pwsh
