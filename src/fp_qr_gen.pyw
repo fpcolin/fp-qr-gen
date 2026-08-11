@@ -21,7 +21,7 @@ import updater
 
 VENDOR = 'Flooring Partners'
 APP_NAME = 'QR Code Generator'
-VERSION = '2.1.0'
+VERSION = '2.1.1'
 
 # Bumped only when the shape of the config file changes, never for an ordinary
 # release. Keying the reset on VERSION would wipe everyone's saved folder and

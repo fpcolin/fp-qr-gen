@@ -5,7 +5,7 @@
 #define AppName        "QR Code Generator"
 ; CI passes /DAppVersion=x.y.z; the fallback keeps local builds working.
 #ifndef AppVersion
-  #define AppVersion   "2.1.0"
+  #define AppVersion   "2.1.1"
 #endif
 #define AppPublisher   "Flooring Partners"
 #define AppExeName     "FPQRGenerator.exe"
@@ -63,10 +63,32 @@ Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
 
 [Run]
-; skipifsilent keeps the app from launching during an unattended self-update.
+; Interactive install: offer a checkbox on the Finished page.
 Filename: "{app}\{#AppExeName}"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent
+
+; Silent install: relaunch automatically. A silent run is almost always the
+; self-updater, and the user was using the program a moment ago, so dropping
+; them back into it is the expected behaviour. Pass /NORELAUNCH to suppress
+; this for unattended deployment (see the Check function below).
+Filename: "{app}\{#AppExeName}"; Flags: nowait; Check: ShouldRelaunch
 
 [UninstallDelete]
 ; Remove the generated config on uninstall. Drop this section if you would
 ; rather preserve user settings across an uninstall/reinstall cycle.
 Type: filesandordirs; Name: "{localappdata}\{#AppPublisher}\{#AppName}"
+
+[Code]
+function ShouldRelaunch: Boolean;
+var
+  I: Integer;
+begin
+  { Only silent installs reach here; interactive ones use the Finished page. }
+  Result := WizardSilent;
+  if Result then
+    for I := 1 to ParamCount do
+      if CompareText(ParamStr(I), '/NORELAUNCH') = 0 then
+      begin
+        Result := False;
+        Exit;
+      end;
+end;

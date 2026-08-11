@@ -2,8 +2,8 @@
 # fp_qr_gen.py - they must be 4 integers, so 2.0.0 becomes (2, 0, 0, 0).
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(2, 1, 0, 0),
-    prodvers=(2, 1, 0, 0),
+    filevers=(2, 1, 1, 0),
+    prodvers=(2, 1, 1, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -17,12 +17,12 @@ VSVersionInfo(
         '040904B0',
         [StringStruct('CompanyName', 'Flooring Partners'),
          StringStruct('FileDescription', 'Flooring Partners QR Code Generator'),
-         StringStruct('FileVersion', '2.1.0.0'),
+         StringStruct('FileVersion', '2.1.1.0'),
          StringStruct('InternalName', 'FPQRGenerator'),
          StringStruct('LegalCopyright', 'Copyright (c) Flooring Partners'),
          StringStruct('OriginalFilename', 'FPQRGenerator.exe'),
          StringStruct('ProductName', 'QR Code Generator'),
-         StringStruct('ProductVersion', '2.1.0.0')]
+         StringStruct('ProductVersion', '2.1.1.0')]
       )
     ]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])
