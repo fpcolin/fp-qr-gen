@@ -4,3 +4,13 @@
 
 /.vs/fp-qr-gen.slnx
 *.iss
+/dist/
+*.spec.bak
+/build/*.exe
+/__pycache__/
+*.py[cod]
+*.pfx
+*.p12
+.env
+/fp-qr-gen.pyproj
+/fp-qr-gen.slnx
