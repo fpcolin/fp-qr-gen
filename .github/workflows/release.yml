@@ -78,15 +78,23 @@ jobs:
       - name: Build installer
         shell: pwsh
         run: |
-          # Locate ISCC rather than hardcoding a version. Inno Setup 7 may
-          # install under Program Files (x64 build) instead of Program Files
-          # (x86), so a fixed "Inno Setup 6" path breaks on a runner update.
-          $iscc = Get-ChildItem -Path "$env:ProgramFiles","${env:ProgramFiles(x86)}" `
-                    -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue |
-                  Select-Object -First 1 -ExpandProperty FullName
-          if (-not $iscc) { throw "ISCC.exe not found - is Inno Setup installed?" }
+          # Find ISCC rather than hardcoding a version-specific path. Two traps
+          # here: Inno is now 7.x so "Inno Setup 6" no longer exists, and inside
+          # a double-quoted string "$env:ProgramFiles(x86)" expands the variable
+          # and then appends a literal "(x86)", producing "C:\Program Files(x86)"
+          # with no space. The braced form ${env:ProgramFiles(x86)} is required.
+          $roots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
+          $iscc = $null
+          foreach ($r in $roots) {
+            $hit = Get-ChildItem -Path (Join-Path $r 'Inno Setup*') -Filter ISCC.exe `
+                     -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($hit) { $iscc = $hit.FullName; break }
+          }
+          if (-not $iscc) { $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source }
+          if (-not $iscc) { throw "ISCC.exe not found. Searched: $($roots -join '; ')" }
           Write-Host "Using $iscc"
           & $iscc /DAppVersion=${{ env.VERSION }} build\installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
 
       # - name: Sign installer
       #   run: signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 dist\installer\FPQRGenerator-${{ env.VERSION }}-setup.exe
