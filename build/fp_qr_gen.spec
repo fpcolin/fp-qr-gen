@@ -22,11 +22,20 @@ a = Analysis(
     runtime_hooks=[],
     # Trimming these keeps the bundle small. Do NOT add http, email, ssl,
     # urllib or encodings here - the updater needs all of them.
+    #
+    # pkg_resources must be excluded alongside setuptools, not left behind.
+    # Modern setuptools no longer vendors jaraco.text inside pkg_resources; it
+    # imports it as a real package from setuptools/_vendor. Excluding
+    # setuptools while collecting pkg_resources therefore produces
+    # "ModuleNotFoundError: No module named 'jaraco.text'" at startup, raised
+    # from PyInstaller's pkg_resources runtime hook. Excluding pkg_resources
+    # removes that hook entirely. Nothing in this app, qrcode, or Pillow
+    # imports pkg_resources, so dropping it is safe.
     excludes=[
         'numpy', 'scipy', 'pandas', 'matplotlib',
         'PyQt5', 'PyQt6', 'PySide2', 'PySide6', 'wx',
         'IPython', 'jupyter', 'notebook',
-        'pytest', 'sphinx', 'setuptools', 'pip',
+        'pytest', 'sphinx', 'setuptools', 'pkg_resources', 'pip',
         'tkinter.test', 'test', 'lib2to3', 'pydoc_data',
     ],
     win_no_prefer_redirects=False,

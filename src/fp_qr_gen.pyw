@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -179,6 +180,10 @@ class Gui:
         self.icon_path = resource_path('fp.ico')
 
         self.root = tk.Tk()
+        # Hide before anything can map it. iconbitmap() and other wm calls below
+        # force Tk to realise the window, so withdrawing later means it appears,
+        # vanishes, then reappears centred - a flash of its own.
+        self.root.withdraw()
         self.root.title(f'{VENDOR} {APP_NAME} v{VERSION}')
         self.root.resizable(False, False)
         self._set_icon(self.root)
@@ -204,9 +209,21 @@ class Gui:
     def _dialog(self, title: str) -> tuple[tk.Toplevel, ttk.Frame]:
         """Create a modal child window offset from the main one, plus its body frame."""
         window = tk.Toplevel(self.root)
+
+        # A Toplevel is mapped the moment it is created, before geometry() moves
+        # it and before any widgets exist. Windows therefore paints a small empty
+        # frame at Tk's default position, which then jumps and fills - it reads
+        # as a stray window flashing open and shut. Stay hidden until the dialog
+        # is fully built, then reveal it in one step.
+        window.withdraw()
+
         window.title(title)
         window.resizable(False, False)
         self._set_icon(window)
+
+        # Tie the dialog to the main window: it stays on top of its parent and
+        # gets no taskbar button of its own, which is another source of flicker.
+        window.transient(self.root)
 
         x, y = (int(part) for part in self.root.geometry().split('+')[1:])
         window.geometry('+%d+%d' % (x + self.root.winfo_width() // 4,
@@ -216,8 +233,20 @@ class Gui:
         body.grid(column=0, row=0, sticky=tk.NW, padx=20, pady=20)
 
         window.bind('<Escape>', lambda _event: window.destroy())
-        window.grab_set()
-        window.focus()
+
+        # Callers add their widgets after this returns, so reveal on the next
+        # idle cycle - by then the layout is final and the window can be shown
+        # at its true size. grab_set must wait too, or the modal grab applies
+        # to a window the user cannot yet see.
+        def reveal() -> None:
+            window.deiconify()
+            window.grab_set()
+            window.focus_force()
+            target = getattr(window, '_initial_focus', None)
+            if target is not None:
+                target.focus_set()
+
+        window.after_idle(reveal)
         return window, body
 
     def _option_checkbutton(self, menu: tk.Menu, label: str, key: str) -> None:
@@ -348,22 +377,24 @@ class Gui:
     # ------------------------------------------------------------------ updates
 
     def check_for_updates(self, manual: bool = False) -> None:
-        """Look for a newer release. Silent on failure unless the user asked."""
-        if manual:
-            manifest = updater.check(VERSION)
+        """Look for a newer release. Silent on failure unless the user asked.
+
+        Always runs off the UI thread: a synchronous call blocks the event loop
+        for up to NETWORK_TIMEOUT seconds, which freezes and greys the window.
+        """
+        def done(manifest: dict | None) -> None:
             if manifest:
                 self.offer_update(manifest)
-            else:
+            elif manual:
                 messagebox.showinfo('No updates',
                                     f'You are running the latest version ({VERSION}).',
                                     parent=self.root)
-            return
 
-        # Startup check: worker thread, result marshalled back to the UI thread.
-        updater.check_async(
-            VERSION,
-            lambda manifest: self.root.after(0, self.offer_update, manifest),
-        )
+        def worker() -> None:
+            manifest = updater.check(VERSION)
+            self.root.after(0, done, manifest)
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def offer_update(self, manifest: dict) -> None:
         notes = manifest.get('notes', '').strip()
@@ -404,7 +435,7 @@ class Gui:
             column=1, row=1, sticky=tk.NE, pady=10)
 
         window.bind('<Return>', confirm)
-        entry.focus()
+        window._initial_focus = entry
 
     def draw_folder_window(self) -> None:
         window, body = self._dialog('Change folder:')
@@ -492,6 +523,7 @@ class Gui:
             (self.root.winfo_screenwidth() - width) // 2,
             (self.root.winfo_screenheight() - height) // 2,
         ))
+        self.root.deiconify()
 
         # Fire after the window is drawn so a slow network never delays startup.
         self.root.after(1200, self.check_for_updates)
