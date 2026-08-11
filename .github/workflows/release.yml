@@ -36,6 +36,21 @@ jobs:
       - name: Install dependencies
         run: pip install pyinstaller qrcode pillow
 
+      # Binary assets are easy to leave uncommitted - they do not show up in
+      # Visual Studio's Solution Explorer the way source files do. Check here so
+      # the failure names the missing file instead of surfacing as a PyInstaller
+      # "Unable to find ... when adding binary and data files" trace.
+      - name: Check assets are committed
+        shell: pwsh
+        run: |
+          $missing = @('src\fp.ico','src\fp_logo.png') | Where-Object { -not (Test-Path $_) }
+          if ($missing) {
+            throw "Missing from the repository: $($missing -join ', '). Commit them; git add -f may be needed if .gitignore excludes them."
+          }
+          Get-ChildItem src\fp.ico, src\fp_logo.png | ForEach-Object {
+            Write-Host ("{0}  {1:N0} bytes" -f $_.Name, $_.Length)
+          }
+
       # Keep the exe's file-properties metadata in step with the tag.
       - name: Sync version resource
         shell: pwsh
@@ -61,9 +76,17 @@ jobs:
         run: choco install innosetup --no-progress -y
 
       - name: Build installer
-        run: |
-          & "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe" /DAppVersion=${{ env.VERSION }} build\installer.iss
         shell: pwsh
+        run: |
+          # Locate ISCC rather than hardcoding a version. Inno Setup 7 may
+          # install under Program Files (x64 build) instead of Program Files
+          # (x86), so a fixed "Inno Setup 6" path breaks on a runner update.
+          $iscc = Get-ChildItem -Path "$env:ProgramFiles","${env:ProgramFiles(x86)}" `
+                    -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue |
+                  Select-Object -First 1 -ExpandProperty FullName
+          if (-not $iscc) { throw "ISCC.exe not found - is Inno Setup installed?" }
+          Write-Host "Using $iscc"
+          & $iscc /DAppVersion=${{ env.VERSION }} build\installer.iss
 
       # - name: Sign installer
       #   run: signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 dist\installer\FPQRGenerator-${{ env.VERSION }}-setup.exe
