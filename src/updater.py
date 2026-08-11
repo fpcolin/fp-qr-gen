@@ -19,10 +19,12 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-# Point this at wherever IT hosts the manifest. An HTTPS URL is preferred; a
-# UNC path such as \\fileserver\apps\qrgen\version.json also works if you swap
-# the urlopen call for a plain file read.
-MANIFEST_URL = 'https://intranet.flooringpartners.com/apps/qrgen/version.json'
+# The /releases/latest/download/ path is a permanent redirect to the asset on
+# the most recently published release, so this URL never needs to change.
+# Do not switch this to api.github.com: that endpoint allows only 60
+# unauthenticated requests per hour per IP, and an office behind one NAT
+# address would exhaust it and stop receiving updates.
+MANIFEST_URL = 'https://github.com/fpcolin/fp-qr-gen/releases/latest/download/version.json'
 
 NETWORK_TIMEOUT = 6      # seconds; keep short so a VPN-less laptop is not stalled
 DOWNLOAD_TIMEOUT = 300
