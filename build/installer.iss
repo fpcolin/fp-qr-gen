@@ -1,0 +1,72 @@
+; Inno Setup script for the Flooring Partners QR Code Generator.
+; Compile with:  iscc build\installer.iss
+; Requires Inno Setup 6+ (https://jrsoftware.org/isdl.php)
+
+#define AppName        "QR Code Generator"
+; CI passes /DAppVersion=x.y.z; the fallback keeps local builds working.
+#ifndef AppVersion
+  #define AppVersion   "2.0.0"
+#endif
+#define AppPublisher   "Flooring Partners"
+#define AppExeName     "FPQRGenerator.exe"
+
+[Setup]
+; AppId is the identity Windows uses to recognise an upgrade. NEVER change it
+; between releases, or every version installs side by side instead of replacing
+; the previous one.
+AppId={{0234F8BE-94D5-4A96-8387-A0CB5A5DAD1B}
+
+AppName={#AppName}
+AppVersion={#AppVersion}
+AppVerName={#AppPublisher} {#AppName} {#AppVersion}
+AppPublisher={#AppPublisher}
+VersionInfoVersion={#AppVersion}
+
+; Per-user install into %LOCALAPPDATA%\Programs. This is the important choice:
+; it means updates need no admin rights, so the in-app updater can run silently
+; without a UAC prompt. Switch to "admin" + {autopf} only if IT deploys this
+; centrally and you drop the self-updater in favour of Intune/GPO.
+PrivilegesRequired=lowest
+DefaultDirName={autopf}\{#AppPublisher}\{#AppName}
+DefaultGroupName={#AppPublisher}
+DisableProgramGroupPage=yes
+
+OutputDir=..\dist\installer
+OutputBaseFilename=FPQRGenerator-{#AppVersion}-setup
+SetupIconFile=..\src\fp.ico
+UninstallDisplayIcon={app}\{#AppExeName}
+UninstallDisplayName={#AppPublisher} {#AppName}
+
+Compression=lzma2/max
+SolidCompression=yes
+WizardStyle=modern
+ArchitecturesInstallIn64BitMode=x64compatible
+
+; Shut down a running copy so its files can be replaced, instead of demanding
+; a reboot. This is what makes silent self-update work reliably.
+CloseApplications=yes
+RestartApplications=no
+CloseApplicationsFilter=*.exe
+
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Tasks]
+Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional shortcuts:"
+
+[Files]
+; The whole PyInstaller onedir output. recursesubdirs picks up _internal\.
+Source: "..\dist\FPQRGenerator\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[Icons]
+Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
+
+[Run]
+; skipifsilent keeps the app from launching during an unattended self-update.
+Filename: "{app}\{#AppExeName}"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent
+
+[UninstallDelete]
+; Remove the generated config on uninstall. Drop this section if you would
+; rather preserve user settings across an uninstall/reinstall cycle.
+Type: filesandordirs; Name: "{localappdata}\{#AppPublisher}\{#AppName}"
