@@ -1,7 +1,7 @@
 """Generate version.json for a built installer.
 
     python build\\publish.py dist\\installer\\FPQRGenerator-2.0.0-setup.exe 2.0.0 ^
-        --base-url https://github.com/fpcolin/fp-qr-gen/releases/latest/download/version.json ^
+        --base-url https://intranet.flooringpartners.com/apps/qrgen ^
         --notes "Adds vCard export and auto-update."
 
 Writes version.json beside the installer. Upload both to the distribution point.
