@@ -21,13 +21,19 @@ import updater
 
 VENDOR = 'Flooring Partners'
 APP_NAME = 'QR Code Generator'
-VERSION = '2.0.0'
+VERSION = '2.1.0'
+
+# Bumped only when the shape of the config file changes, never for an ordinary
+# release. Keying the reset on VERSION would wipe everyone's saved folder and
+# filename on every patch, which is exactly what they would not expect.
+CONFIG_SCHEMA = 1
 
 DEFAULT_LOGO = 'default-logo'
 IMAGE_TYPES = [('Image files', '.png .jpg .jpeg .jfif .pjpeg .pjp')]
 INVALID_FILENAME_CHARS = '<>:"/\\|?*'
 
 DEFAULTS = {
+    'schema': CONFIG_SCHEMA,
     'version': VERSION,
     'saveto_path': str(Path.home() / 'Downloads'),
     'saveto_name': 'qr_code',
@@ -72,13 +78,17 @@ class Config:
         except (OSError, ValueError):
             stored = None
 
-        # A missing, corrupt, or older-version file is replaced with defaults.
-        if isinstance(stored, dict) and stored.get('version') == VERSION:
+        # Reset only when the file's structure is unrecognisable, not when the
+        # app version moves. Settings survive upgrades.
+        if isinstance(stored, dict) and stored.get('schema') == CONFIG_SCHEMA:
             self._data.update({k: v for k, v in stored.items() if k in DEFAULTS})
+            if self._data.get('version') != VERSION:
+                self._data['version'] = VERSION   # record which build wrote it
+                self.save()
         else:
             self.save()
 
-        # Clean up the config file from versions that used YAML.
+        # Clean up config files from versions that used YAML.
         try:
             self.path.with_name('config.yml').unlink(missing_ok=True)
         except OSError:
@@ -267,7 +277,7 @@ class Gui:
         menubar = tk.Menu(self.root)
 
         file_menu = tk.Menu(menubar, tearoff=False)
-        file_menu.add_command(label='Change folder', command=self.draw_folder_window)
+        file_menu.add_command(label='Change folder\u2026', command=self.choose_folder)
         file_menu.add_command(label='Check for updates\u2026',
                               command=lambda: self.check_for_updates(manual=True))
         file_menu.add_separator()
@@ -437,24 +447,22 @@ class Gui:
         window.bind('<Return>', confirm)
         window._initial_focus = entry
 
-    def draw_folder_window(self) -> None:
-        window, body = self._dialog('Change folder:')
+    def choose_folder(self) -> None:
+        """Open the system folder picker at the current save location."""
+        current = Path(self.config['saveto_path'])
+        # A picker pointed at a deleted folder opens somewhere arbitrary, so
+        # walk up to the nearest parent that still exists.
+        while not current.is_dir() and current != current.parent:
+            current = current.parent
 
-        def change(_event=None):
-            window.destroy()
-            path = filedialog.askdirectory(parent=self.root,
-                                           initialdir=self.config['saveto_path'])
-            if path:
-                self.config.set('saveto_path', os.path.normpath(path))
-
-        ttk.Label(body, text=f'Current folder: {self.config["saveto_path"]}').grid(
-            column=0, row=0, sticky=tk.NW, columnspan=2)
-        ttk.Button(body, text='Change', command=change).grid(
-            column=0, row=1, sticky=tk.NW, pady=10)
-        ttk.Button(body, text='Cancel', command=window.destroy).grid(
-            column=1, row=1, sticky=tk.NE, pady=10)
-
-        window.bind('<Return>', change)
+        path = filedialog.askdirectory(
+            parent=self.root,
+            title='Select folder to save QR codes',
+            initialdir=str(current),
+            mustexist=True,
+        )
+        if path:
+            self.config.set('saveto_path', os.path.normpath(path))
 
     def draw_embed_window(self) -> None:
         window, body = self._dialog('Change embedded image:')
