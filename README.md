@@ -97,11 +97,14 @@ build/     PyInstaller spec, Inno Setup script, release helper
 
 ## Licence
 
-Source code is released under the MIT Licence — see [LICENSE.txt](LICENSE.txt).
+Source code and documentation are released under the MIT Licence.
 
 The Flooring Partners name, logo (`src/fp_logo.png`), and icon (`src/fp.ico`)
-are company property and are not covered by that licence. If you reuse this
-code, replace those assets with your own.
+are excluded and remain company property — no trademark rights are granted. If
+you fork this project, replace those files with your own and change the `VENDOR`
+and `APP_NAME` constants in `src/fp_qr_gen.pyw`.
+
+See [LICENSE.txt](LICENSE.txt) for both.
 
 ## AI disclosure
 
