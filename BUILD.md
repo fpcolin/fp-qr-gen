@@ -248,6 +248,12 @@ untrusted programs from writing to protected folders. An unsigned executable is
 untrusted by definition. The protected set includes Documents, Pictures,
 Videos, Music, Desktop and Favorites.
 
+From 2.1.2 the installer refuses a directory inside any of those folders. It
+checks the real shell-folder paths from the registry, so redirected or
+OneDrive-backed locations resolve correctly, and it only enforces this on the
+interactive directory page - blocking a silent install would make Setup exit
+with no message and break self-update for anyone already in a bad location.
+
 **Installing the program itself into one of those folders makes this much
 worse.** The app is then an untrusted binary living inside the area Defender is
 guarding: SmartScreen fires repeatedly, writes are refused, and the uninstaller
