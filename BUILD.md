@@ -237,10 +237,61 @@ hiddenimports=['updater', 'jaraco.text', 'jaraco.functools',
 Always `--clean` after changing `excludes`; PyInstaller caches its analysis and
 a stale cache will reproduce the old error and make the fix look ineffective.
 
+### Permission denied when saving
+
+`[Errno 13] Permission denied` on the save folder. From 2.1.2 the app explains
+this and offers to pick a different folder; earlier versions showed the raw
+error.
+
+The usual cause is Microsoft Defender's Controlled folder access, which blocks
+untrusted programs from writing to protected folders. An unsigned executable is
+untrusted by definition. The protected set includes Documents, Pictures,
+Videos, Music, Desktop and Favorites.
+
+**Installing the program itself into one of those folders makes this much
+worse.** The app is then an untrusted binary living inside the area Defender is
+guarding: SmartScreen fires repeatedly, writes are refused, and the uninstaller
+cannot remove its own files, so Settings -> Apps fails to uninstall it. If this
+happens, delete the install folder by hand and reinstall to the default
+location.
+
+Other causes worth checking: the folder is managed by OneDrive and sync is
+signed out, or the target file is already open in an image viewer.
+
+Confirm a Defender block in Windows Security -> Virus & threat protection ->
+Protection history, or in Event Viewer under Applications and Services Logs ->
+Microsoft -> Windows -> Windows Defender -> Operational, event ID 1123.
+
+Immediate fix for a user: File -> Change folder, and pick somewhere outside the
+protected set - a folder they create themselves, such as
+`C:\Users\<name>\QR Codes`.
+
+The durable fix is code signing. A signed executable builds reputation with
+Defender and SmartScreen, so it stops being treated as untrusted.
+
 ### The exe starts and immediately vanishes
 
 A windowed build has nowhere to print a traceback. Temporarily set
 `console=True` in the spec, rebuild, and run from a terminal to see the error.
+
+### Relaunching after an update
+
+A silent install relaunches the app when it finishes, because a silent run is
+almost always the self-updater and the user was mid-task a moment earlier. The
+interactive Finished-page checkbox still applies to normal installs, and the two
+`[Run]` entries are mutually exclusive — `skipifsilent` on one, a `Check:` on
+the other — so the app never launches twice.
+
+For unattended deployment where that is not wanted, pass `/NORELAUNCH`:
+
+```
+FPQRGenerator-2.1.1-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NORELAUNCH
+```
+
+The decision lives in the installer rather than the updater, which matters:
+users on an older build get the new behaviour as soon as they upgrade, because
+it is the *new* installer that runs. Had the flag been sent by the updater
+instead, it would not have taken effect until the upgrade after next.
 
 ## Code signing
 

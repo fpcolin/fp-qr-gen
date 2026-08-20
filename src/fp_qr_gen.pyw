@@ -21,7 +21,7 @@ import updater
 
 VENDOR = 'Flooring Partners'
 APP_NAME = 'QR Code Generator'
-VERSION = '2.1.1'
+VERSION = '2.1.2'
 
 # Bumped only when the shape of the config file changes, never for an ordinary
 # release. Keying the reset on VERSION would wipe everyone's saved folder and
@@ -374,8 +374,32 @@ class Gui:
     def _save_and_open(self, data: str) -> None:
         try:
             path = self.qr.generate(data)
-        except Exception as exc:
-            messagebox.showerror('Could not create QR code', str(exc), parent=self.root)
+        except PermissionError:
+            # PermissionError subclasses OSError, so it must be caught first.
+            # Windows raises this when antivirus ransomware protection blocks
+            # the write, when the folder is a redirected OneDrive location that
+            # is unavailable, or when the target file is open elsewhere. The
+            # raw "[Errno 13] Permission denied" tells the user nothing they
+            # can act on, so explain it and offer a way out.
+            folder = self.config['saveto_path']
+            if messagebox.askyesno(
+                'Cannot save to that folder',
+                f'Windows would not let the program save to:\n{folder}\n\n'
+                'This is usually caused by antivirus ransomware protection '
+                '("Controlled folder access"), by the folder being managed by '
+                'OneDrive, or by the file already being open in another program.'
+                '\n\nWould you like to choose a different folder now?',
+                parent=self.root,
+            ):
+                self.choose_folder()
+            return
+        except OSError as exc:
+            messagebox.showerror('Could not save the QR code', str(exc),
+                                 parent=self.root)
+            return
+        except Exception as exc:                      # noqa: BLE001 - last resort
+            messagebox.showerror('Could not create QR code',
+                                 f'{type(exc).__name__}: {exc}', parent=self.root)
             return
         self.qr.reveal(path)
 

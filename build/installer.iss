@@ -5,7 +5,7 @@
 #define AppName        "QR Code Generator"
 ; CI passes /DAppVersion=x.y.z; the fallback keeps local builds working.
 #ifndef AppVersion
-  #define AppVersion   "2.1.1"
+  #define AppVersion   "2.1.2"
 #endif
 #define AppPublisher   "Flooring Partners"
 #define AppExeName     "FPQRGenerator.exe"
