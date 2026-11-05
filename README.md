@@ -1,5 +1,17 @@
 # QR Code Generator
 
+> **Replaced by [Flooring Partners App](https://github.com/fpcolin/fp-tools).**
+> It does QR codes and the VendorCafe converter in one program. This app is no
+> longer developed.
+>
+> Installed copies of QR Code Generator move over by themselves: their update
+> check offers Flooring Partners App, installs it for that person, and the new
+> app copies their settings and then removes this one. That "update" is
+> published by running the **Handover to Flooring Partners App** workflow in
+> this repository's Actions tab (once, with the Flooring Partners App version,
+> for example `3.0.3`). Don't publish other releases here afterwards: the
+> handover release has to stay the latest one.
+
 A small Windows desktop app for Flooring Partners that turns a URL or a set of
 contact details into a QR code, with the company logo embedded in the middle.
 
